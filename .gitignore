@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+venv/
+env/
+
+# Model file (too large for GitHub)
+model/*.keras
+model/*.h5
+
+# Flask
+instance/
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
