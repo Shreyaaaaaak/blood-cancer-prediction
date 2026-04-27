@@ -1,0 +1,1904 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>HematoScan — Blood Cancer Detection</title>
+  <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    :root {
+      --bg:       #d8daf0;
+      --white:    #eeeffe;
+      --border:   #b0b4e0;
+      --text:     #1a1a2e;
+      --muted:    #6b6f9a;
+      --accent:   #3a5a8c;
+      --accent-l: #dde4f5;
+      --danger:   #c0524a;
+      --danger-l: #f5e8e8;
+      --warn:     #7a5c20;
+      --warn-l:   #fdf5e6;
+      --serif:    'Lora', Georgia, serif;
+      --sans:     'DM Sans', sans-serif;
+    }
+
+    * { margin:0; padding:0; box-sizing:border-box; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-weight: 300;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── NAV ── */
+    nav {
+      background: var(--white);
+      border-bottom: 1px solid var(--border);
+      padding: 0 48px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 60px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .logo {
+      font-family: var(--serif);
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--text);
+      letter-spacing: -0.01em;
+    }
+
+    .logo em {
+      font-style: italic;
+      color: var(--accent);
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 4px;
+    }
+
+    .nav-link {
+      font-family: var(--sans);
+      font-size: 13px;
+      font-weight: 400;
+      color: var(--muted);
+      background: none;
+      border: none;
+      padding: 6px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .nav-link:hover { background: rgba(255,255,255,0.06); color: var(--text); }
+    .nav-link.active { background: #e8a090; color: #7a2a1a; font-weight: 500; border: 1px solid #d08070; }
+
+    /* ── PAGE ── */
+    .page { display: none; }
+    .page.active { display: block; }
+
+    /* ── PREDICT LAYOUT ── */
+    .predict-wrap {
+      max-width: 1060px;
+      margin: 0 auto;
+      padding: 48px 32px 80px;
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      gap: 28px;
+      align-items: start;
+    }
+
+    /* ── CARD ── */
+    .card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .card + .card { margin-top: 16px; }
+
+    .card-head {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .card-title {
+      font-family: var(--sans);
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .card-body { padding: 20px; }
+
+    /* ── FORM ── */
+    .field { margin-bottom: 14px; }
+    .field:last-child { margin-bottom: 0; }
+
+    .field label {
+      display: block;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--muted);
+      margin-bottom: 5px;
+    }
+
+    .field input, .field select {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 9px 12px;
+      font-family: var(--sans);
+      font-size: 14px;
+      font-weight: 300;
+      color: var(--text);
+      background: var(--white);
+      outline: none;
+      transition: border-color 0.15s;
+      -webkit-appearance: none;
+    }
+
+    .field input:focus, .field select:focus {
+      border-color: var(--accent);
+    }
+
+    .field input::placeholder { color: #ccc; }
+
+    .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+    /* ── DROP ZONE ── */
+    .drop-zone {
+      border: 1.5px dashed var(--border);
+      border-radius: 10px;
+      padding: 32px 20px;
+      text-align: center;
+      cursor: pointer;
+      position: relative;
+      transition: all 0.2s;
+      background: var(--bg);
+    }
+
+    .drop-zone:hover, .drop-zone.over {
+      border-color: var(--accent);
+      background: var(--accent-l);
+    }
+
+    .drop-zone input {
+      position: absolute; inset: 0;
+      opacity: 0; cursor: pointer;
+      width: 100%; height: 100%;
+    }
+
+    .drop-icon { font-size: 28px; margin-bottom: 8px; opacity: 0.5; }
+
+    .drop-label {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text);
+      margin-bottom: 3px;
+    }
+
+    .drop-hint { font-size: 12px; color: var(--muted); }
+
+    /* Preview */
+    #preview-wrap {
+      display: none;
+      margin-top: 14px;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      position: relative;
+    }
+
+    #preview-img {
+      width: 100%; height: 180px;
+      object-fit: cover; display: block;
+    }
+
+    .preview-label {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      background: rgba(255,255,255,0.9);
+      backdrop-filter: blur(4px);
+      padding: 6px 12px;
+      font-size: 11px;
+      color: var(--muted);
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+    }
+
+    /* ── BUTTON ── */
+    .btn-run {
+      width: 100%;
+      margin-top: 14px;
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 13px;
+      font-family: var(--sans);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn-run:hover { background: #2e4a7a; }
+    .btn-run:disabled { opacity: 0.35; cursor: not-allowed; }
+
+    .btn-spinner {
+      width: 15px; height: 15px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      display: none;
+    }
+
+    /* ── RIGHT SIDE ── */
+    /* Idle */
+    .idle-state {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 64px 32px;
+      text-align: center;
+    }
+
+    .idle-icon { font-size: 40px; margin-bottom: 16px; opacity: 0.25; }
+
+    .idle-title {
+      font-family: var(--serif);
+      font-size: 20px;
+      font-weight: 400;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+
+    .idle-sub { font-size: 13px; color: var(--muted); line-height: 1.6; }
+
+    /* Result card */
+    #result-panel { display: none; }
+    #idleState { display: block !important; }
+
+    /* Diagnosis banner */
+    .diag-banner {
+      padding: 24px;
+      border-radius: 10px;
+      margin-bottom: 16px;
+    }
+
+    .diag-banner.benign { background: var(--accent-l); border: 1px solid #b8d4c4; }
+    .diag-banner.cancer { background: var(--danger-l); border: 1px solid #d4b8b8; }
+
+    .diag-eyebrow {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .diag-name {
+      font-family: var(--serif);
+      font-size: 28px;
+      font-weight: 600;
+      margin-bottom: 6px;
+      line-height: 1.2;
+    }
+
+    .diag-name.benign { color: var(--accent); }
+    .diag-name.early  { color: #7a6520; }
+    .diag-name.preb   { color: #8b4e20; }
+    .diag-name.prob   { color: var(--danger); }
+
+    .diag-desc { font-size: 13px; color: var(--muted); line-height: 1.6; }
+
+    /* Confidence */
+    .conf-section { margin-bottom: 20px; }
+
+    .conf-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .conf-row strong {
+      font-family: var(--serif);
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .conf-track {
+      height: 4px;
+      background: var(--border);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+
+    .conf-fill {
+      height: 100%;
+      border-radius: 99px;
+      transition: width 1.1s cubic-bezier(0.4,0,0.2,1);
+      width: 0%;
+    }
+
+    .conf-fill.benign { background: var(--accent); }
+    .conf-fill.early  { background: #c8a840; }
+    .conf-fill.preb   { background: #c87830; }
+    .conf-fill.prob   { background: var(--danger); }
+
+    /* Probabilities */
+    .prob-section { margin-bottom: 20px; }
+
+    .prob-label {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+
+    .prob-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 9px;
+    }
+
+    .prob-name { font-size: 13px; color: var(--text); width: 130px; flex-shrink: 0; }
+    .prob-track { flex: 1; height: 3px; background: var(--border); border-radius: 99px; overflow: hidden; }
+    .prob-fill-bar { height: 100%; border-radius: 99px; background: var(--accent); transition: width 0.9s ease; width: 0%; }
+    .prob-val { font-size: 12px; color: var(--muted); width: 36px; text-align: right; }
+
+    /* Image row */
+    .result-image {
+      width: 100%; height: 180px;
+      object-fit: cover;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      display: block;
+      margin-bottom: 16px;
+    }
+
+    /* Divider */
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 20px 0;
+    }
+
+    /* Action buttons */
+    .action-row { display: flex; gap: 10px; }
+
+    .btn-secondary {
+      flex: 1;
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 11px;
+      font-family: var(--sans);
+      font-size: 13px;
+      font-weight: 400;
+      color: var(--text);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .btn-secondary:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-l); }
+
+    /* Warning */
+    .warning-note {
+      background: var(--warn-l);
+      border: 1px solid #e0d0a0;
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-size: 12px;
+      color: var(--warn);
+      line-height: 1.6;
+      margin-top: 14px;
+    }
+
+    /* Error */
+    .error-note {
+      background: var(--danger-l);
+      border: 1px solid #e0b8b8;
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-size: 12px;
+      color: var(--danger);
+      margin-top: 12px;
+      display: none;
+    }
+
+    /* ── HISTORY ── */
+    .history-wrap {
+      max-width: 880px;
+      margin: 0 auto;
+      padding: 48px 32px 80px;
+    }
+
+    .history-top {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 28px;
+    }
+
+    .history-heading {
+      font-family: var(--serif);
+      font-size: 28px;
+      font-weight: 400;
+      font-style: italic;
+    }
+
+    .btn-ghost {
+      font-family: var(--sans);
+      font-size: 12px;
+      color: var(--muted);
+      background: none;
+      border: none;
+      cursor: pointer;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    .btn-ghost:hover { color: var(--danger); }
+
+    .history-empty {
+      text-align: center;
+      padding: 80px 20px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .history-empty p { margin-top: 8px; font-size: 13px; }
+
+    .history-list { display: flex; flex-direction: column; gap: 1px; }
+
+    .history-item {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px 20px;
+      display: grid;
+      grid-template-columns: 52px 1fr auto;
+      gap: 16px;
+      align-items: center;
+      margin-bottom: 10px;
+      transition: border-color 0.15s;
+    }
+
+    .history-item:hover { border-color: #c8c4b8; }
+
+    .history-thumb {
+      width: 52px; height: 52px;
+      border-radius: 7px;
+      object-fit: cover;
+      border: 1px solid var(--border);
+    }
+
+    .history-name {
+      font-weight: 500;
+      font-size: 15px;
+      margin-bottom: 3px;
+    }
+
+    .history-meta { font-size: 12px; color: var(--muted); line-height: 1.6; }
+
+    .result-pill {
+      font-size: 12px;
+      font-weight: 500;
+      padding: 5px 12px;
+      border-radius: 99px;
+    }
+
+    .result-pill.benign { background: var(--accent-l); color: var(--accent); }
+    .result-pill.early  { background: #fdf5e0; color: #7a6520; }
+    .result-pill.preb   { background: #fdf0e8; color: #8b4e20; }
+    .result-pill.prob   { background: var(--danger-l); color: var(--danger); }
+
+    /* ── HOSPITAL FINDER ── */
+    .hospital-section {
+      display: none;
+      margin-top: 20px;
+      border: 1px solid #e0c8c8;
+      border-radius: 10px;
+      overflow: hidden;
+      background: var(--white);
+    }
+
+    .hospital-head {
+      background: var(--danger-l);
+      border-bottom: 1px solid #e0c8c8;
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .hospital-head-icon { font-size: 18px; }
+
+    .hospital-head-text { flex: 1; }
+
+    .hospital-head-title {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--danger);
+      margin-bottom: 1px;
+    }
+
+    .hospital-head-sub {
+      font-size: 11px;
+      color: #b07070;
+    }
+
+    .hospital-search-row {
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      gap: 8px;
+    }
+
+    .hospital-search-row input {
+      flex: 1;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 9px 12px;
+      font-family: var(--sans);
+      font-size: 13px;
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .hospital-search-row input:focus { border-color: var(--danger); }
+    .hospital-search-row input::placeholder { color: #ccc; }
+
+    .btn-find {
+      background: var(--danger);
+      color: white;
+      border: none;
+      border-radius: 7px;
+      padding: 9px 18px;
+      font-family: var(--sans);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s;
+      white-space: nowrap;
+    }
+
+    .btn-find:hover { background: #6e2020; }
+    .btn-find:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .hospital-list { padding: 12px 18px 16px; }
+
+    .hospital-loading {
+      text-align: center;
+      padding: 24px;
+      font-size: 13px;
+      color: var(--muted);
+      display: none;
+    }
+
+    .hospital-card {
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+      animation: fadeUp 0.3s ease both;
+    }
+
+    .hospital-card:last-child { border-bottom: none; }
+
+    .hospital-num {
+      width: 24px; height: 24px;
+      border-radius: 50%;
+      background: var(--danger-l);
+      border: 1px solid #e0c8c8;
+      color: var(--danger);
+      font-size: 11px;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .hospital-info { flex: 1; }
+
+    .hospital-name {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text);
+      margin-bottom: 3px;
+    }
+
+    .hospital-address {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.5;
+      margin-bottom: 4px;
+    }
+
+    .hospital-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+
+    .hospital-tag {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 99px;
+      background: var(--accent-l);
+      color: var(--accent);
+      border: 1px solid #c0d8cc;
+    }
+
+    .hospital-phone {
+      font-size: 12px;
+      color: var(--danger);
+      font-weight: 500;
+      white-space: nowrap;
+      margin-top: 2px;
+    }
+
+    .hospital-empty {
+      text-align: center;
+      padding: 20px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    /* ── DARK MODE ── */
+    body.dark {
+      --bg:       #0f1020;
+      --white:    #171928;
+      --border:   #242640;
+      --text:     #f0f2ff;
+      --muted:    #5a5f80;
+      --accent:   #4a9e7a;
+      --accent-l: #142010;
+      --danger:   #c05050;
+      --danger-l: #200e0e;
+      --warn:     #b08030;
+      --warn-l:   #1a1408;
+    }
+
+    /* Dark mode toggle */
+    .dark-toggle {
+      width: 36px; height: 20px;
+      background: var(--border);
+      border-radius: 99px;
+      border: none;
+      cursor: pointer;
+      position: relative;
+      transition: background 0.25s;
+      flex-shrink: 0;
+    }
+
+    .dark-toggle.on { background: var(--accent); }
+
+    .dark-toggle::after {
+      content: '';
+      position: absolute;
+      left: 3px; top: 3px;
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      background: white;
+      transition: transform 0.25s;
+    }
+
+    .dark-toggle.on::after { transform: translateX(16px); }
+
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    /* ── CANCER INFO CARDS ── */
+    .info-section {
+      margin-top: 20px;
+      display: none;
+    }
+
+    .info-section-title {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+
+    .info-cards-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .info-card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 16px;
+      cursor: pointer;
+      transition: border-color 0.15s, box-shadow 0.15s;
+      position: relative;
+    }
+
+    .info-card:hover { border-color: #b8b4a8; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+    .info-card.active { border-color: var(--accent); }
+
+    .info-card-top {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .info-card-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .info-card-dot.benign { background: var(--accent); }
+    .info-card-dot.early  { background: #c8a840; }
+    .info-card-dot.preb   { background: #c87830; }
+    .info-card-dot.prob   { background: var(--danger); }
+
+    .info-card-name {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text);
+    }
+
+    .info-card-short {
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    /* Expanded info panel */
+    .info-expanded {
+      display: none;
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px;
+      margin-top: 10px;
+      animation: fadeUp 0.25s ease both;
+    }
+
+    .info-expanded.show { display: block; }
+
+    .info-exp-name {
+      font-family: var(--serif);
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .info-exp-name.benign { color: var(--accent); }
+    .info-exp-name.early  { color: #c8a840; }
+    .info-exp-name.preb   { color: #c87830; }
+    .info-exp-name.prob   { color: var(--danger); }
+
+    .info-exp-full {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 12px;
+      font-style: italic;
+    }
+
+    .info-exp-desc {
+      font-size: 13px;
+      color: var(--text);
+      line-height: 1.7;
+      margin-bottom: 12px;
+    }
+
+    .info-exp-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .info-exp-item {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 10px 12px;
+    }
+
+    .info-exp-item-label {
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 3px;
+    }
+
+    .info-exp-item-val {
+      font-size: 13px;
+      color: var(--text);
+      font-weight: 500;
+    }
+
+    /* ── HOW IT WORKS ── */
+    .hiw-steps { display:flex; flex-direction:column; gap:0; }
+
+    .hiw-step {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+    }
+
+    .hiw-num {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: white;
+      font-size: 13px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .hiw-content { flex: 1; padding-bottom: 4px; }
+
+    .hiw-title {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text);
+      margin-bottom: 3px;
+    }
+
+    .hiw-desc { font-size: 12px; color: var(--muted); line-height: 1.5; }
+
+    .hiw-connector {
+      width: 1px; height: 20px;
+      background: var(--border);
+      margin-left: 13px;
+      margin-top: 2px;
+      margin-bottom: 2px;
+    }
+
+    /* ── STATS ROW ── */
+    .stats-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .stat-item { text-align: center; flex: 1; }
+
+    .stat-val {
+      font-family: var(--serif);
+      font-size: 22px;
+      font-weight: 600;
+      color: var(--accent);
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+
+    .stat-lbl { font-size: 11px; color: var(--muted); }
+
+    .stat-divider {
+      width: 1px; height: 36px;
+      background: var(--border);
+    }
+
+    /* ── ROTATING FACTS ── */
+    .fact-counter {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .fact-icon {
+      font-size: 28px;
+      margin-bottom: 10px;
+      display: block;
+      transition: opacity 0.4s;
+    }
+
+    .fact-text {
+      font-size: 14px;
+      color: var(--text);
+      line-height: 1.7;
+      font-weight: 300;
+      min-height: 60px;
+      transition: opacity 0.4s;
+    }
+
+    .fact-dots {
+      display: flex;
+      gap: 5px;
+      margin-top: 16px;
+      justify-content: center;
+    }
+
+    .fact-dot {
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: var(--border);
+      transition: background 0.3s;
+      cursor: pointer;
+    }
+
+    .fact-dot.active { background: var(--accent); }
+
+    /* ── ANIMATIONS ── */
+    @keyframes spin    { to { transform: rotate(360deg); } }
+    @keyframes fadeUp  { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+    .fadein { animation: fadeUp 0.35s ease both; }
+
+    @media(max-width:768px){
+      .predict-wrap { grid-template-columns: 1fr; padding: 24px 16px 60px; }
+      nav { padding: 0 20px; }
+      .history-wrap { padding: 24px 16px 60px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="logo">Hemato<em>Scan</em></div>
+  <div class="nav-links">
+    <button class="nav-link active" onclick="showPage('predict', this)">Analysis</button>
+    <button class="nav-link" onclick="showPage('history', this)">History</button>
+    <button class="nav-link" onclick="showPage('learn', this)">Cancer Types</button>
+  </div>
+  <div class="toggle-row">
+    <span>🌙</span>
+    <button class="dark-toggle" id="darkToggle" onclick="toggleDark()" title="Toggle dark mode"></button>
+  </div>
+</nav>
+
+<!-- ══ PREDICT ══ -->
+<div class="page active" id="page-predict">
+  <div class="predict-wrap">
+
+    <!-- LEFT COLUMN -->
+    <div>
+
+      <!-- Patient -->
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">Patient Details</span>
+        </div>
+        <div class="card-body">
+          <div class="field">
+            <label>Full Name</label>
+            <input type="text" id="p-name" placeholder="e.g. Rahul Sharma"/>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label>Age</label>
+              <input type="number" id="p-age" placeholder="—" min="1" max="120"/>
+            </div>
+            <div class="field">
+              <label>Gender</label>
+              <select id="p-gender">
+                <option value="">Select</option>
+                <option>Male</option>
+                <option>Female</option>
+                <option>Other</option>
+              </select>
+            </div>
+          </div>
+          <div class="field">
+            <label>Sample ID</label>
+            <input type="text" id="p-sample" placeholder="e.g. SMP-2024-001"/>
+          </div>
+        </div>
+      </div>
+
+      <!-- Upload -->
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">Blood Cell Image</span>
+          <span style="font-size:11px;color:var(--muted)">BMP · PNG · JPG</span>
+        </div>
+        <div class="card-body">
+          <div class="drop-zone" id="dropZone">
+            <input type="file" id="fileInput" accept="image/*"/>
+            <div class="drop-icon">🔬</div>
+            <div class="drop-label">Drop image here or click to browse</div>
+            <div class="drop-hint">Microscopy blood smear · 224 × 224 input</div>
+          </div>
+
+          <div id="preview-wrap">
+            <img id="preview-img" src="" alt="Preview"/>
+            <div class="preview-label">
+              <span id="preview-name">—</span>
+              <span>Ready</span>
+            </div>
+          </div>
+
+          <button class="btn-run" id="predictBtn" disabled onclick="predict()">
+            <div class="btn-spinner" id="spinner"></div>
+            <span id="btn-text">Run Analysis</span>
+          </button>
+
+          <div class="error-note" id="errorBox"></div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- RIGHT COLUMN -->
+    <div>
+
+      <!-- Result (hidden until analysis runs) -->
+      <div id="result-panel">
+        <div class="card fadein">
+          <div class="card-head">
+            <span class="card-title">Analysis Result</span>
+            <span id="res-timestamp" style="font-size:11px;color:var(--muted)">—</span>
+          </div>
+          <div class="card-body">
+
+            <img id="res-img" class="result-image" src="" alt=""/>
+
+            <div class="diag-banner" id="diag-banner">
+              <div class="diag-eyebrow">Diagnosis</div>
+              <div class="diag-name" id="res-class">—</div>
+              <div class="diag-desc" id="res-desc">—</div>
+            </div>
+
+            <div class="conf-section">
+              <div class="conf-row">
+                <span>Confidence</span>
+                <strong id="conf-pct">—</strong>
+              </div>
+              <div class="conf-track">
+                <div class="conf-fill" id="conf-fill"></div>
+              </div>
+            </div>
+
+            <div class="prob-section">
+              <div class="prob-label">All Probabilities</div>
+              <div id="prob-rows"></div>
+            </div>
+
+            <div class="divider"></div>
+
+            <div class="action-row">
+              <button class="btn-secondary" onclick="downloadPDF()">↓ Download Report</button>
+              <button class="btn-secondary" onclick="clearResult()">↺ New Test</button>
+            </div>
+
+            <div class="warning-note">
+              For academic and research use only. This is not a substitute for professional medical diagnosis. Always consult a qualified haematologist.
+            </div>
+
+            <!-- HOSPITAL FINDER — shown only when cancer detected -->
+            <div class="hospital-section" id="hospitalSection">
+              <div class="hospital-head">
+                <div class="hospital-head-icon">🏥</div>
+                <div class="hospital-head-text">
+                  <div class="hospital-head-title">Cancer Detected — Find Nearby Specialists</div>
+                  <div class="hospital-head-sub">Enter your city to find haematology hospitals and oncologists</div>
+                </div>
+              </div>
+              <div class="hospital-search-row">
+                <input type="text" id="cityInput" placeholder="e.g. Bhubaneswar, Mumbai, Delhi…" onkeydown="if(event.key==='Enter') findHospitals()"/>
+                <button class="btn-find" id="findBtn" onclick="findHospitals()">Search</button>
+              </div>
+              <div class="hospital-list">
+                <div class="hospital-loading" id="hospitalLoading">🔍 Searching for hospitals…</div>
+                <div id="hospitalResults"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ══ IDLE INFO (always visible below result) ══ -->
+<div id="idleState" style="max-width:1060px;margin:0 auto;padding:0 32px 48px;display:grid;grid-template-columns:380px 1fr;gap:28px;">
+  <div></div><!-- empty left column spacer -->
+  <div>
+    <!-- How it works -->
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-head">
+        <span class="card-title">How It Works</span>
+      </div>
+      <div class="card-body" style="padding:20px">
+        <div class="hiw-steps">
+          <div class="hiw-step">
+            <div class="hiw-num">1</div>
+            <div class="hiw-content">
+              <div class="hiw-title">Fill Patient Details</div>
+              <div class="hiw-desc">Enter the patient name, age, gender and sample ID for the report.</div>
+            </div>
+          </div>
+          <div class="hiw-connector"></div>
+          <div class="hiw-step">
+            <div class="hiw-num">2</div>
+            <div class="hiw-content">
+              <div class="hiw-title">Upload Blood Cell Image</div>
+              <div class="hiw-desc">Drop a microscopy blood smear image — BMP, PNG or JPG supported.</div>
+            </div>
+          </div>
+          <div class="hiw-connector"></div>
+          <div class="hiw-step">
+            <div class="hiw-num">3</div>
+            <div class="hiw-content">
+              <div class="hiw-title">Get Instant Result</div>
+              <div class="hiw-desc">Our MobileNetV2 CNN analyses the image and returns a diagnosis with confidence score.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stats bar -->
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-body" style="padding:16px 20px">
+        <div class="stats-row">
+          <div class="stat-item">
+            <div class="stat-val">4</div>
+            <div class="stat-lbl">Cancer Classes</div>
+          </div>
+          <div class="stat-divider"></div>
+          <div class="stat-item">
+            <div class="stat-val">224px</div>
+            <div class="stat-lbl">Input Size</div>
+          </div>
+          <div class="stat-divider"></div>
+          <div class="stat-item">
+            <div class="stat-val">CNN</div>
+            <div class="stat-lbl">Architecture</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Rotating facts -->
+    <div class="card">
+      <div class="card-head">
+        <span class="card-title">Did You Know?</span>
+        <span class="fact-counter" id="factCounter">1 / 8</span>
+      </div>
+      <div class="card-body" style="padding:24px 20px;min-height:130px;position:relative">
+        <div class="fact-icon" id="factIcon">🩸</div>
+        <div class="fact-text" id="factText">Loading...</div>
+        <div class="fact-dots" id="factDots"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ HISTORY ══ -->
+<div class="page" id="page-history">
+  <div class="history-wrap">
+    <div class="history-top">
+      <div class="history-heading">Patient History</div>
+      <button class="btn-ghost" onclick="clearHistory()">Clear all</button>
+    </div>
+    <div id="history-container"></div>
+  </div>
+</div>
+
+<!-- ══ CANCER TYPES ══ -->
+<div class="page" id="page-learn">
+  <div style="max-width:880px;margin:0 auto;padding:48px 32px 80px">
+
+    <div style="margin-bottom:32px">
+      <div style="font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Reference Guide</div>
+      <div style="font-family:var(--serif);font-size:28px;font-weight:400;font-style:italic;margin-bottom:8px">Understanding Blood Cancer Types</div>
+      <div style="font-size:14px;color:var(--muted);line-height:1.6;max-width:540px">Our model detects four classes of blood cell conditions. Tap any card to learn more about each type, its symptoms, and what it means.</div>
+    </div>
+
+    <!-- Cards grid -->
+    <div class="info-cards-grid" style="grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
+
+      <div class="info-card" onclick="expandInfo('benign')">
+        <div class="info-card-top">
+          <div class="info-card-dot benign"></div>
+          <div class="info-card-name">Benign</div>
+        </div>
+        <div class="info-card-short">Normal blood cells detected. No signs of leukemia present.</div>
+      </div>
+
+      <div class="info-card" onclick="expandInfo('early')">
+        <div class="info-card-top">
+          <div class="info-card-dot early"></div>
+          <div class="info-card-name">Early Pre-B ALL</div>
+        </div>
+        <div class="info-card-short">Earliest stage of B-cell leukemia. High treatment success rate.</div>
+      </div>
+
+      <div class="info-card" onclick="expandInfo('preb')">
+        <div class="info-card-top">
+          <div class="info-card-dot preb"></div>
+          <div class="info-card-name">Pre-B ALL</div>
+        </div>
+        <div class="info-card-short">Intermediate stage of B-cell Acute Lymphoblastic Leukemia.</div>
+      </div>
+
+      <div class="info-card" onclick="expandInfo('prob')">
+        <div class="info-card-top">
+          <div class="info-card-dot prob"></div>
+          <div class="info-card-name">Pro-B ALL</div>
+        </div>
+        <div class="info-card-short">Most aggressive B-cell ALL subtype. Requires intensive treatment.</div>
+      </div>
+
+    </div>
+
+    <!-- Expanded detail panel -->
+    <div class="info-expanded" id="infoExpanded">
+      <div class="info-exp-name" id="exp-name">—</div>
+      <div class="info-exp-full" id="exp-full">—</div>
+      <div class="info-exp-desc" id="exp-desc">—</div>
+      <div class="info-exp-grid" id="exp-grid"></div>
+    </div>
+
+    <!-- ALL overview note -->
+    <div style="margin-top:24px;background:var(--white);border:1px solid var(--border);border-radius:10px;padding:20px">
+      <div style="font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-bottom:10px">What is ALL?</div>
+      <div style="font-size:13px;color:var(--text);line-height:1.7">
+        <b>Acute Lymphoblastic Leukemia (ALL)</b> is a type of blood cancer that starts in the bone marrow, where blood cells are made. It causes the body to produce too many immature white blood cells called lymphoblasts, which crowd out healthy blood cells. ALL is the most common cancer in children but can also affect adults. It progresses quickly and requires immediate medical attention. Early detection significantly improves the chances of successful treatment.
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ── ROTATING FACTS ──
+const FACTS = [
+  { icon: '🩸', text: 'ALL (Acute Lymphoblastic Leukemia) is the most common cancer in children, accounting for about 25% of all childhood cancers worldwide.' },
+  { icon: '🔬', text: 'Blood cancer accounts for around 10% of all cancer diagnoses globally. Early detection through AI can significantly improve survival rates.' },
+  { icon: '🧬', text: 'MobileNetV2, used in this model, was originally designed by Google and can classify images with over 90% accuracy while being lightweight enough to run on mobile devices.' },
+  { icon: '💉', text: 'With modern chemotherapy, over 90% of children with ALL achieve complete remission. Early and accurate diagnosis is the most critical factor.' },
+  { icon: '🏥', text: 'India reports approximately 80,000 new cases of blood cancer every year. Access to early AI-assisted diagnosis could save thousands of lives.' },
+  { icon: '📊', text: 'Deep learning models can detect patterns in blood cell microscopy images that are invisible to the human eye, achieving diagnostic accuracy comparable to expert haematologists.' },
+  { icon: '🦠', text: 'In ALL, abnormal white blood cells called lymphoblasts multiply rapidly in the bone marrow, crowding out healthy red blood cells, white blood cells, and platelets.' },
+  { icon: '⚡', text: 'This model uses Transfer Learning — it was pre-trained on over 1 million images (ImageNet) and then fine-tuned specifically on blood cancer cell images.' },
+];
+
+let currentFact = 0;
+let factInterval = null;
+
+function initFacts() {
+  const dotsEl = document.getElementById('factDots');
+  if (!dotsEl) return;
+  dotsEl.innerHTML = FACTS.map((_, i) =>
+    `<div class="fact-dot ${i===0?'active':''}" onclick="showFact(${i})"></div>`
+  ).join('');
+  showFact(0);
+  factInterval = setInterval(() => {
+    showFact((currentFact + 1) % FACTS.length);
+  }, 5000);
+}
+
+function showFact(index) {
+  currentFact = index;
+  const iconEl    = document.getElementById('factIcon');
+  const textEl    = document.getElementById('factText');
+  const counterEl = document.getElementById('factCounter');
+  const dotsEl    = document.getElementById('factDots');
+  if (!iconEl || !textEl) return;
+
+  // Fade out
+  iconEl.style.opacity = '0';
+  textEl.style.opacity = '0';
+
+  setTimeout(() => {
+    iconEl.textContent  = FACTS[index].icon;
+    textEl.textContent  = FACTS[index].text;
+    counterEl.textContent = `${index + 1} / ${FACTS.length}`;
+    // Update dots
+    dotsEl.querySelectorAll('.fact-dot').forEach((d, i) => {
+      d.classList.toggle('active', i === index);
+    });
+    // Fade in
+    iconEl.style.opacity = '1';
+    textEl.style.opacity = '1';
+  }, 300);
+}
+
+// Start facts on page load
+window.addEventListener('load', initFacts);
+
+// ── DARK MODE ──
+function toggleDark() {
+  const body = document.body;
+  const btn  = document.getElementById('darkToggle');
+  body.classList.toggle('dark');
+  btn.classList.toggle('on');
+  localStorage.setItem('hematoscan_dark', body.classList.contains('dark') ? '1' : '0');
+}
+
+// Restore dark mode preference on load
+if (localStorage.getItem('hematoscan_dark') === '1') {
+  document.body.classList.add('dark');
+  document.getElementById('darkToggle').classList.add('on');
+}
+
+// ── CANCER INFO CARDS ──
+const INFO_DATA = {
+  benign: {
+    name: 'Benign',
+    full: 'Normal Blood Cells — No Leukemia Detected',
+    colorClass: 'benign',
+    desc: 'The blood cell sample appears normal with no signs of leukemia. Benign cells are healthy, mature blood cells functioning as expected. While this result is reassuring, regular blood tests are still recommended as part of routine health monitoring, especially if the patient has existing symptoms.',
+    stats: [
+      { label: 'Risk Level',       val: 'None detected' },
+      { label: 'Treatment Needed', val: 'None' },
+      { label: 'Follow-up',        val: 'Routine check-up' },
+      { label: 'Prognosis',        val: 'Normal' },
+    ]
+  },
+  early: {
+    name: 'Early Pre-B ALL',
+    full: 'Early Pre-B Acute Lymphoblastic Leukemia',
+    colorClass: 'early',
+    desc: 'Early Pre-B ALL is the earliest stage of B-cell lineage leukemia. At this stage, lymphoblasts are beginning to show abnormalities but have not yet fully committed to the Pre-B cell stage. This is the most treatable form of ALL, with survival rates exceeding 90% in children with proper chemotherapy treatment. Early diagnosis is critical for the best outcomes.',
+    stats: [
+      { label: 'Risk Level',       val: 'Moderate' },
+      { label: 'Treatment',        val: 'Chemotherapy' },
+      { label: 'Survival Rate',    val: '85–95% (children)' },
+      { label: 'Urgency',          val: 'Consult immediately' },
+    ]
+  },
+  preb: {
+    name: 'Pre-B ALL',
+    full: 'Pre-B Acute Lymphoblastic Leukemia',
+    colorClass: 'preb',
+    desc: 'Pre-B ALL is an intermediate stage where immature B-lymphocytes (pre-B cells) multiply uncontrollably in the bone marrow. These abnormal cells crowd out normal blood cells, leading to anaemia, infection risk, and bleeding problems. It is the most common subtype of ALL, especially in children aged 2–5. Treatment typically involves multi-phase chemotherapy and sometimes stem cell transplantation.',
+    stats: [
+      { label: 'Risk Level',       val: 'High' },
+      { label: 'Treatment',        val: 'Chemo + Possible BMT' },
+      { label: 'Survival Rate',    val: '75–90% (children)' },
+      { label: 'Urgency',          val: 'Urgent specialist care' },
+    ]
+  },
+  prob: {
+    name: 'Pro-B ALL',
+    full: 'Pro-B Acute Lymphoblastic Leukemia',
+    colorClass: 'prob',
+    desc: 'Pro-B ALL is the most immature and aggressive subtype of B-cell ALL. The leukemic cells are at the very earliest stage of B-cell development. This subtype is often associated with specific chromosomal abnormalities such as MLL gene rearrangements and tends to be more resistant to standard chemotherapy. It is more common in infants and requires intensive, specialised treatment protocols.',
+    stats: [
+      { label: 'Risk Level',       val: 'Very High' },
+      { label: 'Treatment',        val: 'Intensive Chemo + BMT' },
+      { label: 'Survival Rate',    val: '50–70%' },
+      { label: 'Urgency',          val: 'Immediate hospitalisation' },
+    ]
+  }
+};
+
+let currentExpanded = null;
+
+function expandInfo(type) {
+  const data     = INFO_DATA[type];
+  const panel    = document.getElementById('infoExpanded');
+  const allCards = document.querySelectorAll('.info-card');
+
+  // If same card clicked again — collapse
+  if (currentExpanded === type) {
+    panel.classList.remove('show');
+    allCards.forEach(c => c.classList.remove('active'));
+    currentExpanded = null;
+    return;
+  }
+
+  currentExpanded = type;
+  allCards.forEach(c => c.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+
+  document.getElementById('exp-name').textContent  = data.name;
+  document.getElementById('exp-name').className    = 'info-exp-name ' + data.colorClass;
+  document.getElementById('exp-full').textContent  = data.full;
+  document.getElementById('exp-desc').textContent  = data.desc;
+  document.getElementById('exp-grid').innerHTML    = data.stats.map(s => `
+    <div class="info-exp-item">
+      <div class="info-exp-item-label">${s.label}</div>
+      <div class="info-exp-item-val">${s.val}</div>
+    </div>`).join('');
+
+  panel.classList.add('show');
+  panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+
+const fileInput  = document.getElementById('fileInput');
+const dropZone   = document.getElementById('dropZone');
+let selectedFile = null, lastResult = null;
+
+fileInput.addEventListener('change', e => handleFile(e.target.files[0]));
+dropZone.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('over'));
+dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('over'); handleFile(e.dataTransfer.files[0]); });
+
+function handleFile(file) {
+  if (!file) return;
+  selectedFile = file;
+  const reader = new FileReader();
+  reader.onload = e => {
+    document.getElementById('preview-img').src = e.target.result;
+    document.getElementById('preview-name').textContent = file.name;
+    document.getElementById('preview-wrap').style.display = 'block';
+    document.getElementById('predictBtn').disabled = false;
+    document.getElementById('errorBox').style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+}
+
+// ── PREDICT ──
+async function predict() {
+  if (!selectedFile) return;
+  document.getElementById('spinner').style.display = 'block';
+  document.getElementById('btn-text').textContent  = 'Analysing…';
+  document.getElementById('predictBtn').disabled   = true;
+  document.getElementById('errorBox').style.display = 'none';
+
+  const fd = new FormData();
+  fd.append('file', selectedFile);
+
+  try {
+    const res  = await fetch('/predict', { method:'POST', body: fd });
+    const data = await res.json();
+    if (data.error) { showError(data.error); return; }
+    renderResult(data);
+    saveHistory(data);
+  } catch(e) {
+    showError('Connection error: ' + e.message);
+  } finally {
+    document.getElementById('spinner').style.display = 'none';
+    document.getElementById('btn-text').textContent  = 'Run Analysis';
+    document.getElementById('predictBtn').disabled   = false;
+  }
+}
+
+// ── RENDER ──
+function renderResult(data) {
+  lastResult = data;
+  document.getElementById('result-panel').style.display = 'block';
+
+  document.getElementById('res-img').src = data.image_data;
+  document.getElementById('res-timestamp').textContent = new Date().toLocaleString();
+
+  const cls = document.getElementById('res-class');
+  cls.textContent = data.predicted_class;
+  cls.className   = 'diag-name ' + data.color_class;
+
+  const banner = document.getElementById('diag-banner');
+  banner.className = 'diag-banner ' + (data.color_class === 'benign' ? 'benign' : 'cancer');
+
+  // Show hospital finder only if cancer detected
+  const hospSection = document.getElementById('hospitalSection');
+  if (data.color_class === 'benign') {
+    hospSection.style.display = 'none';
+    document.getElementById('hospitalResults').innerHTML = '';
+    document.getElementById('cityInput').value = '';
+  } else {
+    hospSection.style.display = 'block';
+    // Pre-fill city from patient name context if possible
+    document.getElementById('cityInput').value = '';
+  }
+
+  document.getElementById('res-desc').textContent = data.description;
+  document.getElementById('conf-pct').textContent = data.confidence.toFixed(1) + '%';
+
+  const fill = document.getElementById('conf-fill');
+  fill.className = 'conf-fill ' + data.color_class;
+  setTimeout(() => fill.style.width = data.confidence + '%', 80);
+
+  const rows = document.getElementById('prob-rows');
+  rows.innerHTML = '';
+  for (const [label, prob] of Object.entries(data.all_probabilities)) {
+    rows.innerHTML += `
+      <div class="prob-row">
+        <span class="prob-name">${label}</span>
+        <div class="prob-track"><div class="prob-fill-bar" data-val="${prob}"></div></div>
+        <span class="prob-val">${prob.toFixed(1)}%</span>
+      </div>`;
+  }
+  setTimeout(() => document.querySelectorAll('.prob-fill-bar').forEach(el => el.style.width = el.dataset.val + '%'), 150);
+
+  document.getElementById('result-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ── HISTORY ──
+function saveHistory(data) {
+  const rec = {
+    name:            document.getElementById('p-name').value   || 'Unknown',
+    age:             document.getElementById('p-age').value    || '—',
+    gender:          document.getElementById('p-gender').value || '—',
+    sample:          document.getElementById('p-sample').value || '—',
+    predicted_class: data.predicted_class,
+    color_class:     data.color_class,
+    confidence:      data.confidence,
+    ts:              new Date().toLocaleString()
+    // image_data intentionally excluded to avoid storage quota errors
+  };
+  try {
+    const h = JSON.parse(sessionStorage.getItem('hematoscan_history') || '[]');
+    h.unshift(rec);
+    sessionStorage.setItem('hematoscan_history', JSON.stringify(h.slice(0, 20)));
+  } catch(e) {
+    // If storage still fails, clear and start fresh
+    sessionStorage.removeItem('hematoscan_history');
+  }
+}
+
+function renderHistory() {
+  const h = JSON.parse(sessionStorage.getItem('hematoscan_history') || '[]');
+  const c = document.getElementById('history-container');
+  if (!h.length) {
+    c.innerHTML = `<div class="history-empty"><div style="font-size:36px;opacity:0.2">📋</div><p>No records yet. Run an analysis to begin.</p></div>`;
+    return;
+  }
+  c.innerHTML = `<div class="history-list">${h.map(r => `
+    <div class="history-item">
+      <div style="width:52px;height:52px;border-radius:7px;background:var(--bg);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:20px;">🔬</div>
+      <div>
+        <div class="history-name">${r.name}</div>
+        <div class="history-meta">Age ${r.age} · ${r.gender} · ${r.sample}</div>
+        <div class="history-meta">${r.ts} · Confidence ${r.confidence.toFixed(1)}%</div>
+      </div>
+      <span class="result-pill ${r.color_class}">${r.predicted_class}</span>
+    </div>`).join('')}</div>`;
+}
+
+function clearHistory() {
+  sessionStorage.removeItem('hematoscan_history');
+  renderHistory();
+}
+
+// ── PDF ──
+function downloadPDF() {
+  if (!lastResult) return;
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+
+  const name   = document.getElementById('p-name').value   || 'N/A';
+  const age    = document.getElementById('p-age').value    || 'N/A';
+  const gender = document.getElementById('p-gender').value || 'N/A';
+  const sample = document.getElementById('p-sample').value || 'N/A';
+  const date   = new Date().toLocaleString();
+
+  const colMap = { benign:[44,95,74], early:[122,92,32], preb:[139,78,32], prob:[139,48,48] };
+  const col = colMap[lastResult.color_class] || [44,95,74];
+
+  // White background
+  doc.setFillColor(255,255,255); doc.rect(0,0,210,297,'F');
+
+  // Top accent line
+  doc.setFillColor(...col); doc.rect(0,0,210,4,'F');
+
+  // Title
+  doc.setTextColor(26,26,24); doc.setFontSize(22); doc.setFont('times','bolditalic');
+  doc.text('HematoScan', 14, 20);
+  doc.setFont('times','normal'); doc.setFontSize(10);
+  doc.setTextColor(136,136,128);
+  doc.text('Blood Cancer Detection Report', 14, 27);
+  doc.text(`Generated: ${date}`, 14, 33);
+
+  // Divider
+  doc.setDrawColor(228,226,218); doc.line(14,38,196,38);
+
+  // Patient
+  doc.setTextColor(136,136,128); doc.setFontSize(8); doc.setFont('helvetica','bold');
+  doc.text('PATIENT DETAILS', 14, 48);
+  doc.setTextColor(26,26,24); doc.setFontSize(11); doc.setFont('helvetica','normal');
+  doc.text(`Name: ${name}`, 14, 56);
+  doc.text(`Age: ${age}   Gender: ${gender}   Sample ID: ${sample}`, 14, 63);
+
+  doc.setDrawColor(228,226,218); doc.line(14,70,196,70);
+
+  // Result
+  doc.setTextColor(136,136,128); doc.setFontSize(8); doc.setFont('helvetica','bold');
+  doc.text('DIAGNOSIS', 14, 80);
+  doc.setTextColor(...col); doc.setFontSize(20); doc.setFont('times','bold');
+  doc.text(lastResult.predicted_class, 14, 91);
+  doc.setTextColor(136,136,128); doc.setFontSize(10); doc.setFont('helvetica','normal');
+  doc.text(lastResult.description, 14, 99);
+  doc.setTextColor(26,26,24); doc.setFontSize(10);
+  doc.text(`Confidence: ${lastResult.confidence.toFixed(1)}%`, 14, 108);
+
+  // Confidence bar
+  doc.setFillColor(228,226,218); doc.roundedRect(14,112,180,5,2,2,'F');
+  doc.setFillColor(...col); doc.roundedRect(14,112,(lastResult.confidence/100)*180,5,2,2,'F');
+
+  doc.setDrawColor(228,226,218); doc.line(14,124,196,124);
+
+  // Probabilities
+  doc.setTextColor(136,136,128); doc.setFontSize(8); doc.setFont('helvetica','bold');
+  doc.text('CLASS PROBABILITIES', 14, 133);
+  let y = 142;
+  for (const [label, prob] of Object.entries(lastResult.all_probabilities)) {
+    doc.setTextColor(26,26,24); doc.setFontSize(10); doc.setFont('helvetica','normal');
+    doc.text(label, 14, y);
+    doc.setFillColor(228,226,218); doc.roundedRect(80,y-4,100,4,1,1,'F');
+    doc.setFillColor(...col); doc.roundedRect(80,y-4,Math.max(1,(prob/100)*100),4,1,1,'F');
+    doc.setTextColor(136,136,128); doc.text(`${prob.toFixed(1)}%`, 185, y);
+    y += 11;
+  }
+
+  doc.setDrawColor(228,226,218); doc.line(14,y+4,196,y+4);
+
+  // Disclaimer
+  doc.setTextColor(122,92,32); doc.setFontSize(8); doc.setFont('helvetica','italic');
+  doc.text('This report is for academic and research use only and is not a substitute for professional medical diagnosis.', 14, y+14);
+
+  // Bottom line
+  doc.setFillColor(...col); doc.rect(0,293,210,4,'F');
+
+  doc.save(`HematoScan_${name.replace(/\s+/g,'_')}_${Date.now()}.pdf`);
+}
+
+// ── HOSPITAL FINDER ──
+async function findHospitals() {
+  const city = document.getElementById('cityInput').value.trim();
+  if (!city) { document.getElementById('cityInput').focus(); return; }
+
+  const btn      = document.getElementById('findBtn');
+  const loading  = document.getElementById('hospitalLoading');
+  const results  = document.getElementById('hospitalResults');
+
+  btn.disabled = true;
+  btn.textContent = '…';
+  loading.style.display = 'block';
+  results.innerHTML = '';
+
+  // Static curated hospital database by city
+  const hospitalDB = {
+    'bhubaneswar': [
+      { name: 'AIIMS Bhubaneswar', address: 'Sijua, Patrapada, Bhubaneswar, Odisha 751019', phone: '0674-2476789', tags: ['Haematology', 'Oncology', 'Govt'] },
+      { name: 'SCB Medical College & Hospital', address: 'Dock Road, Manglabag, Cuttack, Odisha 753007', phone: '0671-2414004', tags: ['Haematology', 'Cancer Care', 'Govt'] },
+      { name: 'Acharya Harihar Regional Cancer Centre', address: 'Cuttack, Odisha 753007', phone: '0671-2303371', tags: ['Oncology', 'Cancer Specialist'] },
+      { name: 'Apollo Hospitals Bhubaneswar', address: 'Plot No 251, Sainik School Road, Bhubaneswar 751005', phone: '0674-6661066', tags: ['Haematology', 'Private'] },
+      { name: 'Hi-Tech Medical College', address: 'Rusipur, Mouza Pandara, Bhubaneswar 751025', phone: '0674-2361789', tags: ['Oncology', 'Private'] },
+    ],
+    'mumbai': [
+      { name: 'Tata Memorial Hospital', address: 'Dr. E Borges Road, Parel, Mumbai 400012', phone: '022-24177000', tags: ['Cancer Specialist', 'Haematology', 'Govt'] },
+      { name: 'Kokilaben Dhirubhai Ambani Hospital', address: 'Rao Saheb Achutrao Patwardhan Marg, Mumbai 400053', phone: '022-30999999', tags: ['Oncology', 'Haematology', 'Private'] },
+      { name: 'Lilavati Hospital', address: 'A-791, Bandra Reclamation, Bandra West, Mumbai 400050', phone: '022-26751000', tags: ['Haematology', 'Private'] },
+      { name: 'Hinduja Hospital', address: 'Veer Savarkar Marg, Mahim, Mumbai 400016', phone: '022-24452222', tags: ['Oncology', 'Private'] },
+    ],
+    'delhi': [
+      { name: 'AIIMS New Delhi', address: 'Sri Aurobindo Marg, Ansari Nagar, New Delhi 110029', phone: '011-26588500', tags: ['Haematology', 'Oncology', 'Govt'] },
+      { name: 'Rajiv Gandhi Cancer Institute', address: 'Sector 5, Rohini, New Delhi 110085', phone: '011-47022222', tags: ['Cancer Specialist', 'Haematology'] },
+      { name: 'Fortis Hospital Vasant Kunj', address: 'Sector B, Pocket 1, Vasant Kunj, New Delhi 110070', phone: '011-42776222', tags: ['Oncology', 'Private'] },
+      { name: 'BLK Super Speciality Hospital', address: 'Pusa Road, New Delhi 110005', phone: '011-30403040', tags: ['Haematology', 'Oncology', 'Private'] },
+    ],
+    'kolkata': [
+      { name: 'Chittaranjan National Cancer Institute', address: '37, S.P. Mukherjee Road, Kolkata 700026', phone: '033-24765101', tags: ['Cancer Specialist', 'Govt'] },
+      { name: 'Apollo Gleneagles Hospital', address: '58, Canal Circular Road, Kolkata 700054', phone: '033-23205040', tags: ['Haematology', 'Oncology', 'Private'] },
+      { name: 'Tata Medical Center', address: '14, Major Arterial Road, Kolkata 700160', phone: '033-66057000', tags: ['Cancer Specialist', 'Haematology'] },
+      { name: 'AMRI Hospital', address: 'JC-16 & 17, Sector III, Salt Lake, Kolkata 700098', phone: '033-66800000', tags: ['Oncology', 'Private'] },
+    ],
+    'bangalore': [
+      { name: 'Kidwai Memorial Institute of Oncology', address: 'Hosur Road, Bangalore 560029', phone: '080-26994000', tags: ['Cancer Specialist', 'Haematology', 'Govt'] },
+      { name: 'Manipal Hospital', address: '98, HAL Airport Road, Bangalore 560017', phone: '080-25024444', tags: ['Oncology', 'Haematology', 'Private'] },
+      { name: 'HCG Cancer Centre', address: '8, P Kalinga Rao Road, Bangalore 560027', phone: '080-40206000', tags: ['Cancer Specialist', 'Private'] },
+      { name: 'Narayana Health City', address: '258/A, Bommasandra, Bangalore 560099', phone: '080-71222222', tags: ['Haematology', 'Oncology', 'Private'] },
+    ],
+    'chennai': [
+      { name: 'Cancer Institute (WIA)', address: '38, Sardar Patel Road, Adyar, Chennai 600036', phone: '044-22350241', tags: ['Cancer Specialist', 'Govt'] },
+      { name: 'Apollo Proton Cancer Centre', address: '320, Dr. MGR Salai, Vanagaram, Chennai 600095', phone: '044-42004200', tags: ['Oncology', 'Haematology', 'Private'] },
+      { name: 'Fortis Malar Hospital', address: '52, 1st Main Road, Gandhi Nagar, Adyar, Chennai 600020', phone: '044-42892222', tags: ['Haematology', 'Private'] },
+    ],
+    'hyderabad': [
+      { name: 'MNJ Institute of Oncology', address: 'Red Hills, Lakdi Ka Pul, Hyderabad 500004', phone: '040-23320455', tags: ['Cancer Specialist', 'Haematology', 'Govt'] },
+      { name: 'Yashoda Hospital', address: 'Raj Bhavan Road, Somajiguda, Hyderabad 500082', phone: '040-45671000', tags: ['Oncology', 'Private'] },
+      { name: 'Care Hospitals', address: 'Road No. 1, Banjara Hills, Hyderabad 500034', phone: '040-30418888', tags: ['Haematology', 'Oncology', 'Private'] },
+    ],
+    'pune': [
+      { name: 'Deenanath Mangeshkar Hospital', address: 'Erandwane, Pune 411004', phone: '020-49156000', tags: ['Haematology', 'Oncology', 'Private'] },
+      { name: 'Ruby Hall Clinic', address: '40, Sassoon Road, Pune 411001', phone: '020-66455000', tags: ['Cancer Care', 'Private'] },
+      { name: 'Jehangir Hospital', address: '32, Sassoon Road, Pune 411001', phone: '020-66814444', tags: ['Haematology', 'Private'] },
+    ],
+  };
+
+  // Simulate a short search delay for UX
+  await new Promise(r => setTimeout(r, 800));
+
+  loading.style.display = 'none';
+  btn.disabled = false;
+  btn.textContent = 'Search';
+
+  // Match city (case insensitive, partial match)
+  const key = Object.keys(hospitalDB).find(k =>
+    city.toLowerCase().includes(k) || k.includes(city.toLowerCase())
+  );
+
+  if (!key) {
+    results.innerHTML = `
+      <div class="hospital-empty">
+        <div style="font-size:28px;margin-bottom:8px;opacity:0.3">🏥</div>
+        <div>No results for "<strong>${city}</strong>".</div>
+        <div style="margin-top:6px;font-size:12px">Try: Bhubaneswar, Mumbai, Delhi, Kolkata, Bangalore, Chennai, Hyderabad, Pune</div>
+      </div>`;
+    return;
+  }
+
+  const hospitals = hospitalDB[key];
+  results.innerHTML = hospitals.map((h, i) => `
+    <div class="hospital-card" style="animation-delay:${i*0.06}s">
+      <div class="hospital-num">${i+1}</div>
+      <div class="hospital-info">
+        <div class="hospital-name">${h.name}</div>
+        <div class="hospital-address">📍 ${h.address}</div>
+        <div class="hospital-tags">${h.tags.map(t => `<span class="hospital-tag">${t}</span>`).join('')}</div>
+      </div>
+      <div class="hospital-phone">📞 ${h.phone}</div>
+    </div>`).join('');
+}
+
+
+function showPage(id, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-link').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (id === 'history') renderHistory();
+  if (id === 'learn') {
+    // reset expanded state
+    currentExpanded = null;
+    document.getElementById('infoExpanded').classList.remove('show');
+    document.querySelectorAll('.info-card').forEach(c => c.classList.remove('active'));
+  }
+}
+
+function clearResult() {
+  document.getElementById('result-panel').style.display = 'none';
+  document.getElementById('preview-wrap').style.display = 'none';
+  document.getElementById('predictBtn').disabled = true;
+  ['p-name','p-age','p-sample'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('p-gender').value = '';
+  selectedFile = null; lastResult = null; fileInput.value = '';
+}
+
+function showError(msg) {
+  const b = document.getElementById('errorBox');
+  b.textContent = msg; b.style.display = 'block';
+}
+
+// ── HOSPITAL FINDER ──
+// Database of haematology hospitals by city
+const HOSPITAL_DB = {
+  'bhubaneswar': [
+    { name: 'AIIMS Bhubaneswar', address: 'Sijua, Patrapada, Bhubaneswar, Odisha 751019', phone: '0674-2476789', tags: ['Haematology', 'Oncology', 'Government'] },
+    { name: 'SCB Medical College & Hospital', address: 'Mangalabag, Cuttack, Odisha 753007', phone: '0671-2414004', tags: ['Haematology', 'Government'] },
+    { name: 'Apollo Hospitals Bhubaneswar', address: 'Plot No 251, Sainik School Rd, Bhubaneswar 751005', phone: '0674-6661066', tags: ['Oncology', 'Private'] },
+    { name: 'Hi-Tech Medical College', address: 'Pandara, Bhubaneswar, Odisha 751025', phone: '0674-2360016', tags: ['Haematology', 'Private'] },
+    { name: 'SUM Ultimate Medicare', address: 'Kalinga Nagar, Bhubaneswar, Odisha 751003', phone: '0674-2394141', tags: ['Cancer Care', 'Private'] },
+  ],
+  'delhi': [
+    { name: 'AIIMS New Delhi — Haematology Dept', address: 'Sri Aurobindo Marg, Ansari Nagar, New Delhi 110029', phone: '011-26588500', tags: ['Haematology', 'Oncology', 'Government'] },
+    { name: 'Rajiv Gandhi Cancer Institute', address: 'Sector 5, Rohini, New Delhi 110085', phone: '011-47022222', tags: ['Oncology', 'BMT', 'Private'] },
+    { name: 'Fortis Memorial Research Institute', address: 'Sector 44, Gurugram, Haryana 122002', phone: '0124-4962200', tags: ['Haematology', 'Private'] },
+    { name: 'Max Super Speciality Hospital', address: 'Saket District Centre, New Delhi 110017', phone: '011-26515050', tags: ['Oncology', 'Private'] },
+    { name: 'Safdarjung Hospital', address: 'Safdarjung, New Delhi 110029', phone: '011-26707444', tags: ['Haematology', 'Government'] },
+  ],
+  'mumbai': [
+    { name: 'Tata Memorial Hospital', address: 'Dr E Borges Rd, Parel, Mumbai 400012', phone: '022-24177000', tags: ['Oncology', 'Haematology', 'Government'] },
+    { name: 'KEM Hospital — Haematology', address: 'Acharya Donde Marg, Parel, Mumbai 400012', phone: '022-24107000', tags: ['Haematology', 'Government'] },
+    { name: 'Kokilaben Dhirubhai Ambani Hospital', address: 'Rao Saheb Achutrao Patwardhan Marg, Mumbai 400053', phone: '022-30999999', tags: ['Oncology', 'BMT', 'Private'] },
+    { name: 'Lilavati Hospital', address: 'A-791, Bandra Reclamation, Mumbai 400050', phone: '022-26751000', tags: ['Haematology', 'Private'] },
+    { name: 'Hinduja Hospital', address: 'Veer Savarkar Marg, Mahim, Mumbai 400016', phone: '022-24447000', tags: ['Oncology', 'Private'] },
+  ],
+  'chennai': [
+    { name: 'Cancer Institute (WIA)', address: '38, Sardar Patel Rd, Adyar, Chennai 600020', phone: '044-22350241', tags: ['Oncology', 'Haematology'] },
+    { name: 'Apollo Cancer Centre Chennai', address: '21, Greams Lane, Chennai 600006', phone: '044-28290200', tags: ['Oncology', 'BMT', 'Private'] },
+    { name: 'MIOT International', address: '4/112, Mount Poonamallee Rd, Chennai 600089', phone: '044-42002288', tags: ['Haematology', 'Private'] },
+    { name: 'Madras Medical College', address: 'Park Town, Chennai 600003', phone: '044-25305000', tags: ['Haematology', 'Government'] },
+  ],
+  'kolkata': [
+    { name: 'Tata Medical Center Kolkata', address: '14 MAR(E-W), New Town, Kolkata 700160', phone: '033-66057000', tags: ['Oncology', 'Haematology'] },
+    { name: 'SSKM Hospital — Haematology', address: '244, AJC Bose Rd, Kolkata 700020', phone: '033-22041739', tags: ['Haematology', 'Government'] },
+    { name: 'Medica Superspecialty Hospital', address: '127, Mukundapur, Kolkata 700099', phone: '033-40004000', tags: ['Oncology', 'Private'] },
+    { name: 'RN Tagore International Institute', address: '124, Mukundapur, Kolkata 700099', phone: '033-66006000', tags: ['Haematology', 'Private'] },
+  ],
+  'bangalore': [
+    { name: 'Kidwai Memorial Institute of Oncology', address: 'Dr M H Marigowda Rd, Bengaluru 560029', phone: '080-26960723', tags: ['Oncology', 'Government'] },
+    { name: 'HCG Cancer Centre', address: '8, HCG Towers, P Kalinga Rao Rd, Bengaluru 560027', phone: '080-40206000', tags: ['Oncology', 'Haematology', 'Private'] },
+    { name: 'Manipal Hospital Bangalore', address: '98, HAL Old Airport Rd, Bengaluru 560017', phone: '080-25024444', tags: ['BMT', 'Haematology', 'Private'] },
+    { name: 'St. John\'s Medical College Hospital', address: 'Sarjapur Rd, Bengaluru 560034', phone: '080-22065000', tags: ['Haematology', 'Government'] },
+  ],
+  'hyderabad': [
+    { name: 'Basavatarakam Indo American Cancer Hospital', address: 'Road No 10, Banjara Hills, Hyderabad 500034', phone: '040-23551235', tags: ['Oncology', 'Haematology'] },
+    { name: 'Nizam\'s Institute of Medical Sciences', address: 'Punjagutta, Hyderabad 500082', phone: '040-23489000', tags: ['Haematology', 'Government'] },
+    { name: 'American Oncology Institute', address: 'Nallagandla, Hyderabad 500019', phone: '040-67777777', tags: ['Oncology', 'BMT', 'Private'] },
+    { name: 'Yashoda Hospitals', address: 'Raj Bhavan Rd, Somajiguda, Hyderabad 500082', phone: '040-45674567', tags: ['Haematology', 'Private'] },
+  ],
+  'pune': [
+    { name: 'Jehangir Hospital — Oncology', address: '32, Sassoon Rd, Pune 411001', phone: '020-66814444', tags: ['Oncology', 'Private'] },
+    { name: 'Ruby Hall Clinic', address: '40, Sassoon Rd, Pune 411001', phone: '020-66455555', tags: ['Haematology', 'BMT', 'Private'] },
+    { name: 'Deenanath Mangeshkar Hospital', address: 'Erandwane, Pune 411004', phone: '020-49150000', tags: ['Haematology', 'Private'] },
+  ],
+};
+
+function findHospitals() {
+  const city   = document.getElementById('cityInput').value.trim().toLowerCase();
+  const loading = document.getElementById('hospitalLoading');
+  const results = document.getElementById('hospitalResults');
+  const btn     = document.getElementById('findBtn');
+
+  if (!city) return;
+
+  // Show loading
+  loading.style.display = 'block';
+  results.innerHTML = '';
+  btn.disabled = true;
+
+  // Simulate a brief search delay for realism
+  setTimeout(() => {
+    loading.style.display = 'none';
+    btn.disabled = false;
+
+    // Find matching city
+    const key = Object.keys(HOSPITAL_DB).find(k => city.includes(k) || k.includes(city));
+    const hospitals = key ? HOSPITAL_DB[key] : null;
+
+    if (!hospitals) {
+      results.innerHTML = `
+        <div class="hospital-empty">
+          No results found for "<strong>${city}</strong>".<br>
+          <span style="font-size:11px">Try: Bhubaneswar, Delhi, Mumbai, Chennai, Kolkata, Bangalore, Hyderabad, Pune</span>
+        </div>`;
+      return;
+    }
+
+    results.innerHTML = hospitals.map((h, i) => `
+      <div class="hospital-card" style="animation-delay:${i * 0.06}s">
+        <div class="hospital-num">${i + 1}</div>
+        <div class="hospital-info">
+          <div class="hospital-name">${h.name}</div>
+          <div class="hospital-address">📍 ${h.address}</div>
+          <div class="hospital-tags">
+            ${h.tags.map(t => `<span class="hospital-tag">${t}</span>`).join('')}
+          </div>
+          <div class="hospital-phone">📞 ${h.phone}</div>
+        </div>
+      </div>`).join('');
+
+  }, 800);
+}
+</script>
+</body>
+</html>
