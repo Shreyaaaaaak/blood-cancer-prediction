@@ -27,7 +27,7 @@ python app.py
 ```
 
 ### 4. Open in browser
-Visit: http://127.0.0.1:5000
+Visit: [http://127.0.0.1:5000](https://blood-cancer-prediction.onrender.com/)
 
 ---
 
