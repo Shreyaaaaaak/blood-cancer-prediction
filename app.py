@@ -16,7 +16,7 @@ def load_model():
     global model
     try:
         import tensorflow as tf
-        model = tf.keras.models.load_model(MODEL_PATH)
+        model = tf.keras.models.load_model(MODEL_PATH, compile=False)
         print("✅ Model loaded successfully!")
     except Exception as e:
         print(f"❌ Error loading model: {e}")
@@ -103,4 +103,4 @@ def predict():
 
 if __name__ == "__main__":
     load_model()
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=False)
